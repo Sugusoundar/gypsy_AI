@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GYPSY_AI</title>
+    <style>
+        body {
+            
+            background-color: rgb(52, 223, 171);
+            color: rgb(0, 0, 0);
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+        }
+        .content {
+            display: flex;
+            flex: 1;
+        }
+        .left-panel, .right-panel {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            color: #000000;
+        }
+        select, input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            margin: 5px;
+            background-color: #050505;
+            color: rgb(255, 255, 255);
+            border: 4px solid green;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #050505;
+            color: rgb(255, 255, 255);
+            border: 4px solid green;
+            margin-top: 10px;
+        }
+        .output {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: left;
+            color: #000000;
+            font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+        }
+        .output ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        .output li {
+            margin: 10px 0;
+            padding: 5px 10px;
+            background-color:  rgb(1, 1, 1);
+            border-left: 3px solid #1bff06;
+            color: #f1f5f1;
+        }
+        .output p {
+            margin: 10px 0;
+        }
+        .iframe-container {
+            width: 100%;
+            height: 100%;
+        }
+        iframe {
+            border: none;
+            width: 100%;
+            height: 100%;
+        }
+        .neon-text {
+            font-size: 40px;
+            font-family: 'Times New Roman', Times, serif;
+            color: rgb(12, 11, 11);
+            text-shadow: 0 0 5px rgb(0, 0, 0), 0 0 10px rgb(43, 255, 0), 0 0 20px rgb(43, 255, 0), 0 0 30px rgb(43, 255, 0), 0 0 40px green, 0 0 50px green, 0 0 60px green, rgb(43, 255, 0);
+        }
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading-effect {
+            width: 100px;
+            height: 100px;
+            border: 5px solid transparent;
+            border-top: 5px solid #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite, glow 2s ease-in-out infinite;
+        }
+        .loading-text {
+            position: absolute;
+            color: #00ff00;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px #f1f5f1, 0 0 10px #f1f5f1 0 0 15px #f1f5f1; }
+            50% { box-shadow: 0 0 20px #f1f5f1, 0 0 30px #f1f5f1, 0 0 40px #f1f5f1; }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="neon-text">GYPSY_AI</div>
+            <div>
+                <select id="command">
+                    <p>  </p>
+                    <option value="/text">/text</option>
+                    <option value="/pic">/pic</option>
+                    <option value="/imagine">/imagine</option>
+                </select>
+                <input type="text" id="prompt" placeholder="Enter your prompt here">
+                <button onclick="generate()">Generate</button>
+            </div>
+        </div>
+        <div class="content">
+            <div class="left-panel">
+                <div class="output" id="output"></div>
+            </div>
+            <div class="right-panel">
+                <div class="iframe-container" id="iframe-container">
+                    <iframe id="iframe" src=""></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="loading" id="loading">
+        <div class="loading-effect"></div>
+        <div class="loading-text">Generating</div>
+    </div>
+
+    <script>
+        function formatOutput(text) {
+            let lines = text.split('\n');
+            let formattedHtml = '<ul>';
+
+            lines.forEach((line, index) => {
+                line = line.trim();
+                if (line) {
+                    if (/^\d+[\.\)]|\-|\•/.test(line)) {
+                        formattedHtml += `<li>${line}</li>`;
+                    } else {
+                        formattedHtml += `</ul><p>${line}</p><ul>`;
+                    }
+                }
+            });
+
+            formattedHtml += '</ul>';
+            return formattedHtml;
+        }
+
+        function generate() {
+            const command = document.getElementById('command').value;
+            const prompt = document.getElementById('prompt').value;
+            const query = `${command} ${prompt}`.trim();
+
+            // Show loading screen for all commands
+            document.getElementById('loading').style.display = 'flex';
+
+            fetch('/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const outputDiv = document.getElementById('output');
+                outputDiv.innerHTML = '';
+
+                if (data.error) {
+                    outputDiv.innerHTML = `<div class="error">${data.error}</div>`;
+                } else {
+                    if (data.generatedText && (command === '/text' || command === '/imagine')) {
+                        outputDiv.innerHTML += formatOutput(data.generatedText);
+                    }
+                    if (data.imagePrompt || command === '/pic' || command === '/imagine') {
+                        const iframe = document.getElementById('iframe');
+                        iframe.src = `https://lexica.art?q=${encodeURIComponent(data.imagePrompt || prompt)}`;
+                        iframe.onload = () => {
+                            // Scroll to 30% of the page height
+                            setTimeout(() => {
+                                const scrollHeight = iframe.contentDocument.body.scrollHeight;
+                                iframe.contentWindow.scrollTo(0, scrollHeight * 0.3);
+                            }, 1000); // Wait for 1 second to ensure content is loaded
+                        };
+                    }
+                }
+
+                // Hide loading screen after content is loaded
+                setTimeout(() => {
+                    document.getElementById('loading').style.display = 'none';
+                }, 2000); // Wait for 2 seconds to ensure content is visible
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('loading').style.display = 'none';
+            });
+        }
+    </script>
+</body>
+</html>
